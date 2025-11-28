@@ -55,6 +55,32 @@ static struct repeating_timer lvgl_timer;
 static struct repeating_timer battery_timer;
 bool is_sleeping = false;
 
+// Array of background images
+const lv_img_dsc_t *backgrounds[] = {
+    &picowalker_background,
+    &picowalker_background_ultra,
+    // Add more backgrounds here
+};
+
+#define NUM_BACKGROUNDS (sizeof(backgrounds) / sizeof(backgrounds[0]))
+
+// Current background index
+static uint8_t background_index = 0;
+
+// Your background image object (create this once at startup)
+lv_obj_t *background_image;
+
+// Swipe event callback
+static void background_callback(lv_event_t *event)
+{
+    lv_event_code_t code = lv_event_get_code(event);
+    lv_obj_t *object = lv_event_get_target(event);
+    if(code == LV_EVENT_VALUE_CHANGED) {
+        uint16_t index = lv_dropdown_get_selected(object);
+        lv_img_set_src(background_image, backgrounds[index]);
+    }
+}
+
 /********************************************************************************
  * @brief           Play simple beep sound using piezo buzzer
  * @param duration  Duration in milliseconds
@@ -185,6 +211,17 @@ static void button_right_callback(lv_event_t *event)
 }
 
 /********************************************************************************
+ * @brief           Canvas Press Callback - adds steps when canvas is pressed
+ * @param event     LVGL event from canvas
+********************************************************************************/
+static void button_steps_callback(lv_event_t * event)
+{
+    play_click_sound();
+    pw_accel_add_steps(10);
+    printf("[Debug] Steps pressed - step added!\n");
+}
+
+/********************************************************************************
  * @brief           Direct Memory Access Handler for Display
  * @param N/A
 ********************************************************************************/
@@ -296,20 +333,6 @@ static void tileview_event_callback(lv_event_t * event)
 }
 
 /********************************************************************************
- * @brief           Canvas Press Callback - adds steps when canvas is pressed
- * @param event     LVGL event from canvas
-********************************************************************************/
-static void canvas_press_callback(lv_event_t * event)
-{
-    if (event->code == LV_EVENT_PRESSED)
-    {
-        // Add a step when canvas is pressed (simulates walking)
-        pw_accel_add_steps(10);
-        printf("[Debug] Canvas pressed - step added!\n");
-    }
-}
-
-/********************************************************************************
  * @brief           Manual Battery Update (can be called externally)
  * @param N/A
 ********************************************************************************/
@@ -393,9 +416,10 @@ void pw_screen_init()
 
     // Pokeball Image ... I want to add more
     LV_IMG_DECLARE(picowalker_background);
-    lv_obj_t *background = lv_img_create(tile_picowalker);
-    lv_img_set_src(background, &picowalker_background);
-    lv_obj_align(background, LV_ALIGN_CENTER, 0, 0);
+    LV_IMG_DECLARE(picowalker_background_ultra);
+    background_image = lv_img_create(tile_picowalker);
+    lv_img_set_src(background_image, backgrounds[0]); //&picowalker_background);
+    lv_obj_align(background_image, LV_ALIGN_CENTER, 0, 0);
 
     // Button Style Not Pressed
     static lv_style_t button_style_base;
@@ -416,12 +440,20 @@ void pw_screen_init()
     lv_style_set_outline_opa(&button_style_press, LV_OPA_TRANSP);
     lv_style_set_bg_opa(&button_style_press, LV_OPA_50);
 
+    // Invisible buttons ...
+    static lv_style_t button_style_invisible;
+    lv_style_init(&button_style_invisible);
+    lv_style_set_bg_opa(&button_style_invisible, LV_OPA_TRANSP);
+    lv_style_set_border_opa(&button_style_invisible, LV_OPA_TRANSP);
+    lv_style_set_outline_opa(&button_style_invisible, LV_OPA_TRANSP);
+    lv_style_set_shadow_opa(&button_style_invisible, LV_OPA_TRANSP);
+
     // Left Button
     lv_obj_t *button_left = lv_btn_create(tile_picowalker);  
     lv_obj_align(button_left, LV_ALIGN_CENTER, -60, LR_BUTTON_Y_OFFSET);
     lv_obj_set_size(button_left, 30, 30);
     lv_group_add_obj(tile_group, button_left);
-    lv_obj_set_ext_click_area(button_left, 10);
+    lv_obj_set_ext_click_area(button_left, 15);
     lv_obj_add_style(button_left, &button_style_base, 0);
     lv_obj_add_style(button_left, &button_style_press, LV_STATE_PRESSED);
     lv_obj_add_event_cb(button_left, button_left_callback, LV_EVENT_CLICKED, NULL);
@@ -431,7 +463,7 @@ void pw_screen_init()
     lv_obj_align(button_middle, LV_ALIGN_CENTER, 0, MD_BUTTON_Y_OFFSET);
     lv_obj_set_size(button_middle, 37, 37);
     lv_group_add_obj(tile_group, button_middle);
-    lv_obj_set_ext_click_area(button_middle, 10);
+    lv_obj_set_ext_click_area(button_middle, 15);
     lv_obj_add_style(button_middle, &button_style_base, 0);
     lv_obj_add_style(button_middle, &button_style_press, LV_STATE_PRESSED);
     lv_obj_add_event_cb(button_middle, button_middle_callback, LV_EVENT_CLICKED, NULL);
@@ -441,18 +473,27 @@ void pw_screen_init()
     lv_obj_align(button_right, LV_ALIGN_CENTER, 60, LR_BUTTON_Y_OFFSET);
     lv_obj_set_size(button_right, 30, 30);
     lv_group_add_obj(tile_group, button_right);
-    lv_obj_set_ext_click_area(button_right, 10);
+    lv_obj_set_ext_click_area(button_right, 15);
     lv_obj_add_style(button_right, &button_style_base, 0);
     lv_obj_add_style(button_right, &button_style_press, LV_STATE_PRESSED);
     lv_obj_add_event_cb(button_right, button_right_callback, LV_EVENT_CLICKED, NULL);
+
+    // Top Button (for adding steps)
+    lv_obj_t *button_top = lv_btn_create(tile_picowalker);
+    lv_obj_align(button_top, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_size(button_top, 37, 37);
+    lv_group_add_obj(tile_group, button_top);
+    lv_obj_set_ext_click_area(button_right, 15);
+    lv_obj_add_style(button_top, &button_style_invisible, 0);
+    lv_obj_add_event_cb(button_top, button_steps_callback, LV_EVENT_CLICKED, NULL);
+
 
     // Picowalker Canvas (clickable for step simulation)
     canvas = lv_canvas_create(tile_picowalker);
     lv_canvas_set_buffer(canvas, canvas_buffer, CANVAS_WIDTH, CANVAS_HEIGHT, LV_IMG_CF_TRUE_COLOR);
     lv_obj_align(canvas, LV_ALIGN_CENTER, 0, CANVAS_Y_OFFSET);
     lv_obj_set_size(canvas, CANVAS_WIDTH, CANVAS_HEIGHT);
-    lv_obj_add_flag(canvas, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(canvas, canvas_press_callback, LV_EVENT_PRESSED, NULL);
+    //lv_obj_add_flag(canvas, LV_OBJ_FLAG_CLICKABLE);
     lv_canvas_fill_bg(canvas, lv_color_make(195, 205, 185), LV_OPA_COVER);
     
     // Rounded overlay to create rounded corners effect
@@ -469,8 +510,14 @@ void pw_screen_init()
     lv_obj_t *tile_menu = lv_tileview_add_tile(tile_view, 0, 1, LV_DIR_TOP|LV_DIR_BOTTOM);
     lv_obj_t *tile_menu_label = lv_label_create(tile_menu);
     lv_label_set_text(tile_menu_label, "System Menu");
-    lv_obj_align(tile_menu_label, LV_ALIGN_CENTER, 0, -50);
+    lv_obj_align(tile_menu_label, LV_ALIGN_CENTER, 0, -80);
     lv_obj_set_style_text_color(tile_menu_label, lv_color_black(), 0);
+
+    // Drowpdown Background
+    lv_obj_t *dropdown = lv_dropdown_create(tile_menu);
+    lv_dropdown_set_options(dropdown, "Pokeball\n" "Ultra");
+    lv_obj_align(dropdown, LV_ALIGN_CENTER, 0, -40);
+    lv_obj_add_event_cb(dropdown, background_callback, LV_EVENT_ALL, NULL);
 
     //  Slider Style
     static lv_style_t slider_style_base;

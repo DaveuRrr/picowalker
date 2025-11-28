@@ -313,7 +313,7 @@ static void tileview_event_callback(lv_event_t * event)
  * @brief           Canvas Press Callback - adds steps when canvas is pressed
  * @param event     LVGL event from canvas
 ********************************************************************************/
-static void canvas_press_callback(lv_event_t * event)
+static void button_steps_callback(lv_event_t * event)
 {
     // if (event->code == LV_EVENT_PRESSED) 
     // {
@@ -495,7 +495,7 @@ void pw_screen_init()
     lv_obj_set_size(button_top, DISP_HOR_RES, DISP_VER_RES / 3);
     lv_obj_align(button_top, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_add_style(button_top, &button_style_invisible, 0);
-    lv_obj_add_event_cb(button_top, canvas_press_callback, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(button_top, button_steps_callback, LV_EVENT_CLICKED, NULL);
     lv_group_add_obj(tile_group, button_top);
 
     // Left Button (bottom left third)
@@ -530,7 +530,7 @@ void pw_screen_init()
     lv_obj_align(canvas, LV_ALIGN_CENTER, 0, CANVAS_Y_OFFSET);
     lv_obj_set_size(canvas, CANVAS_WIDTH, CANVAS_HEIGHT);
     lv_obj_add_flag(canvas, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(canvas, canvas_press_callback, LV_EVENT_PRESSED, NULL);
+    lv_obj_add_event_cb(canvas, button_steps_callback, LV_EVENT_PRESSED, NULL);
     lv_canvas_fill_bg(canvas, lv_color_make(195, 205, 185), LV_OPA_COVER);
 
     // Rounded overlay to create rounded corners effect

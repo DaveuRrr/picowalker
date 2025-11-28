@@ -223,12 +223,6 @@ void pw_ir_deinit(void)
  ********************************************************************************/
 int pw_ir_read(uint8_t *buf, size_t max_len) 
 {
-    if (!g_usb_cdc_initialized || !buf) 
-    {
-        printf("[IR-CDC] Read called but not initialized or null buffer\n");
-        return 0;
-    }
-
     size_t bytes_read = 0;
     absolute_time_t start, last_byte_time, now;
     int64_t diff;
@@ -243,18 +237,6 @@ int pw_ir_read(uint8_t *buf, size_t max_len)
         diff = absolute_time_diff_us(start, now);
     } while (rx_buffer_is_empty() && diff < RX_TIMEOUT_US);
 
-    // If no data arrived, return 0
-    if (rx_buffer_is_empty()) 
-    {
-        // Only print occasionally to avoid spam
-        static uint32_t timeout_count = 0;
-        if (++timeout_count % 100 == 0) 
-        {
-            printf("[IR-CDC] Read timeout (no data after 50ms) - count: %lu\n", timeout_count);
-        }
-        return 0;
-    }
-
     // Data has started arriving - collect bytes until timeout
     last_byte_time = get_absolute_time();
     diff = 0;
@@ -263,30 +245,25 @@ int pw_ir_read(uint8_t *buf, size_t max_len)
     {
         tud_task(); // Service USB stack
         service_usb_cdc(); // Transfer USB data to our buffer
-
-        // TODO Test the change in picowalker-core and see if changing the packet->cmd
-        // to packet->extra works. We may not need the code below...
-
-        // Try to read a byte
-        int16_t byte = rx_buffer_get();
-        if (byte >= 0)
+        
+        if(!rx_buffer_is_empty())
         {
-            buf[bytes_read++] = (uint8_t)byte;
+            buf[bytes_read] = (uint8_t)rx_buffer_get();
+            bytes_read++;
             last_byte_time = get_absolute_time();
+            // TODO Test the change in picowalker-core and see if changing the packet->cmd
+            // to packet->extra works. We may not need the code below...
 
             // Packet boundary detection: If we've read exactly 8 bytes AND
             // there are exactly 8 more bytes buffered, this is likely
             // CMD_WALK_END_REQ (8 bytes) + CMD_DISCONNECT (8 bytes) sent together.
             // Stop after the first packet to avoid the "length 16" error.
-            if (bytes_read == 8 && rx_buffer_available() == 8)
-            {
-                printf("[IR-CDC] Packet boundary detected: read 8 bytes, 8 more buffered (likely separate packets)\n");
-                break;
-            }
-
-            // Stop if buffer is full
-            if (bytes_read >= max_len) break;
-
+            //     if (bytes_read == 8 && rx_buffer_available() == 8)
+            //     {
+            //         printf("[IR-CDC] Packet boundary detected: read 8 bytes, 8 more buffered (likely separate packets)\n");
+            //         break;
+            //     }
+            
         }
 
         now = get_absolute_time();
@@ -314,16 +291,8 @@ int pw_ir_read(uint8_t *buf, size_t max_len)
  ********************************************************************************/
 int pw_ir_write(uint8_t *buf, size_t len) 
 {
-    if (!g_usb_cdc_initialized || !buf || len == 0) return 0;
-    // // Wait for CDC to be connected
+    // Wait for CDC to be connected
     absolute_time_t start = get_absolute_time();
-
-
-    if (!tud_cdc_n_connected(CDC_ITF))
-    {
-        printf("[IR-CDC] WARNING: Writing %d bytes while CDC %d not connected (DTR not set)\n", len, CDC_ITF);
-        // Continue anyway - USB CDC doesn't require DTR to send data
-    }
     
     // Send data in chunks if needed (CDC buffer might be smaller than len)
     size_t total_written = 0;
@@ -352,30 +321,25 @@ int pw_ir_write(uint8_t *buf, size_t len)
     // Final flush
     tud_cdc_n_write_flush(CDC_ITF);
 
-    // At 115200 baud: ~87 microseconds per byte
-    // Add extra margin for USB overhead and host processing
-    uint32_t transmission_time_us = (total_written * 87) + 5000; // +5ms safety margin
-    busy_wait_us(transmission_time_us);
-
     // Detect (CMD_WALK_END_ACK) 0x50, (CMD_WALK_START) 0x5a
     // This is the final acknowledgment sent by the walker to the game
     // Flush EEPROM cache immediately to ensure all data is saved
     // This is temporary until pw_ir_deinit() is developed in picowalker-core
     // Saving is happening too early it seems
-    if (total_written >= 1) 
-    {
-        uint8_t cmd = buf[0] ^ 0xAA;  // Decrypt first byte
-        // printf("[IR-CDC] CMD=0x%02X\n", cmd);
-        if (cmd == 0x50) printf("[IR-CDC] CMD=0x%02X CMD_WALK_END_ACK\n", cmd);
-        if (cmd == 0x5A) printf("[IR-CDC] CMD=0x%02X CMD_WALK_START\n", cmd);
-        if (cmd == 0x50 || cmd == 0x5A) // CMD_WALK_END_ACK
-        {  
-            if (pw_eeprom_is_cache_dirty()) 
-            {
-                pw_eeprom_flush_to_flash();
-            }
-        }
-    }
+    // if (total_written >= 1) 
+    // {
+    //     uint8_t cmd = buf[0] ^ 0xAA;  // Decrypt first byte
+    //     // printf("[IR-CDC] CMD=0x%02X\n", cmd);
+    //     if (cmd == 0x50) printf("[IR-CDC] CMD=0x%02X CMD_WALK_END_ACK\n", cmd);
+    //     if (cmd == 0x5A) printf("[IR-CDC] CMD=0x%02X CMD_WALK_START\n", cmd);
+    //     if (cmd == 0x50 || cmd == 0x5A) // CMD_WALK_END_ACK
+    //     {  
+    //         if (pw_eeprom_is_cache_dirty()) 
+    //         {
+    //             pw_eeprom_flush_to_flash();
+    //         }
+    //     }
+    // }
 
     return total_written;
 }

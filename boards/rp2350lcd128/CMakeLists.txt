@@ -104,6 +104,8 @@ if (USE_LVGL)
       ${MAIN_SRC_DIR}/assets/pokewalker_rp2xxx_inbuilt.h
       ${MAIN_SRC_DIR}/assets/picowalker_background_240x240_lvgl.c
       ${MAIN_SRC_DIR}/assets/picowalker_background_240x240_lvgl.h
+      ${MAIN_SRC_DIR}/assets/picowalker_background_ultra_240x240_lvgl.c
+      ${MAIN_SRC_DIR}/assets/picowalker_background_ultra_240x240_lvgl.h
 
       ${MAIN_SRC_DIR}/picowalker-defs.h
   )

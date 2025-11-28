@@ -14,6 +14,7 @@
 
 // Background Image
 #include "picowalker_background_240x240_lvgl.h"
+#include "picowalker_background_ultra_240x240_lvgl.h"
 
 // Picowalker
 #include "picowalker-defs.h"

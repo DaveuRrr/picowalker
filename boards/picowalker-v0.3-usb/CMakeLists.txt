@@ -41,7 +41,10 @@ add_executable(picowalker
     ${MAIN_SRC_DIR}/drivers/usb/msc_disk.c
     ${MAIN_SRC_DIR}/drivers/usb/msc_disk.h
     ${MAIN_SRC_DIR}/drivers/usb/usb_descriptors.c
-    ${MAIN_SRC_DIR}/drivers/usb/tusb_config.h ${MAIN_SRC_DIR}/drivers/log/onboard_log.c ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_inbuilt.S ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_inbuilt.h
+    ${MAIN_SRC_DIR}/drivers/usb/tusb_config.h 
+    ${MAIN_SRC_DIR}/drivers/log/onboard_log.c
+    ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_inbuilt.S 
+    ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_inbuilt.h
     ${MAIN_SRC_DIR}/assets/pokewalker_rp2xxx_inbuilt.S
     ${MAIN_SRC_DIR}/assets/pokewalker_rp2xxx_inbuilt.c
     ${MAIN_SRC_DIR}/assets/pokewalker_rp2xxx_inbuilt.h
