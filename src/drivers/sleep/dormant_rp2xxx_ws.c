@@ -40,8 +40,17 @@ bool pw_power_should_sleep()
  * @param N/A
  * @return pw_wake_reason_t
 ********************************************************************************/
-pw_wake_reason_t pw_power_get_wake_reason() 
+pw_wake_reason_t pw_power_get_wake_reason()
 {
     return wake_reason;
+}
+
+/********************************************************************************
+ * @brief           Power Clear Wake Reason
+ * @param reason    Wake reason flags to clear
+********************************************************************************/
+void pw_power_clear_wake_reason(pw_wake_reason_t reason)
+{
+    wake_reason &= ~reason;
 }
 

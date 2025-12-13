@@ -18,12 +18,36 @@
  */
 typedef uint8_t screen_pos_t;       /// 0-95
 typedef uint8_t screen_colour_t;    /// 2-bits, pw style
+typedef uint8_t img_dim_t;
 
-typedef struct {
-    screen_pos_t height, width;
-    uint8_t *data;
-    size_t size; /// bytes
+typedef enum draw_mode_e {
+  DRAW_ORIGINAL = 0,
+  DRAW_COLOR = 1,
+} draw_mode_t;
+
+typedef enum contents_format_e {
+  CONTENTS_ORIGINAL = 0,
+  CONTENTS_COLOR = 1,
+} contents_format_t;
+
+typedef struct pw_img_s {
+  img_dim_t width;
+  img_dim_t height;
+  uint8_t *data;
+  size_t size;
+  uint8_t padding;
+  struct {
+    draw_mode_t draw_mode : 1;
+    contents_format_t contents_format : 1;
+    bool use_alt : 1;
+  } flags;
 } pw_img_t;
+
+// typedef struct {
+//     screen_pos_t height, width;
+//     uint8_t *data;
+//     size_t size; /// bytes
+// } pw_img_t;
 
 typedef struct {
     screen_pos_t width, height;
@@ -223,7 +247,7 @@ pw_battery_status_t pw_power_get_battery_status();
 void pw_power_enter_sleep();
 bool pw_power_should_sleep();
 pw_wake_reason_t pw_power_get_wake_reason();
-
+void pw_power_clear_wake_reason(pw_wake_reason_t reason);
 
 /*
  *  ==================================================================================
