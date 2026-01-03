@@ -217,7 +217,7 @@ static void button_right_callback(lv_event_t *event)
 static void button_steps_callback(lv_event_t * event)
 {
     play_click_sound();
-    pw_accel_add_steps(10);
+    pw_accel_add_steps(1000);
     printf("[Debug] Steps pressed - step added!\n");
 }
 
