@@ -1,7 +1,11 @@
 #include "gc9a01a_rp2xxx_lvgl.h"
 #include "adc_rp2xxx.h"
 #include "qmi8658_rp2xxx.h"
+#include "picowalker_rp2xxx_color_icons.h"
+#include "picowalker_rp2xxx_color_routes.h"
+
 #include "picowalker-defs.h"
+
 
 #ifdef __has_include
 #if __has_include("board_resources.h")
@@ -17,6 +21,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
+#include "pico/multicore.h"
+#include "pico/mutex.h"
+
+
+// Multi-core support for image processing
+static mutex_t core1_mutex;
+static bool core1_initialized = false;
+static volatile bool core1_processing = false;
+static uint8_t *core1_result = NULL;
 
 // LVGL Settings
 static lv_disp_drv_t driver_display;
@@ -341,6 +355,59 @@ void pw_screen_update_battery()
     repeating_battery_timer_callback(NULL);
 }
 
+/********************************************************************************
+ * @brief           image processing
+ * @param N/A
+ ********************************************************************************/
+static void core1_image_processing()
+{
+    while(1)
+    {
+        // Wait for work to arrive
+        uint32_t work_signal = multicore_fifo_pop_blocking();
+
+        if (work_signal == 0xDEADBEEF)
+        {
+            // Process image data on core1
+            mutex_enter_blocking(&core1_mutex);
+
+            // Retrieve parameters from FIFO
+            pw_img_t *image = (pw_img_t *)multicore_fifo_pop_blocking();
+
+            // Signal we're processing
+            core1_processing = true;
+            mutex_exit(&core1_mutex);
+
+            // TODO...
+            uint8_t *color_image = find_icon_by_eeprom_address(image->lookup_table.addr);
+
+            // Signal completion
+            mutex_enter_blocking(&core1_mutex);
+            core1_processing = false;
+            core1_result = color_image; // Set result pointer
+            mutex_exit(&core1_mutex);
+
+            // Signal back to core0 that we're done
+            multicore_fifo_push_blocking(0xCAFEBABE);
+        }
+    }
+}
+
+/********************************************************************************
+ * @brief           Initialize core1 for image processing
+ * @param N/A
+ ********************************************************************************/
+static void init_core1()
+{
+    if (!core1_initialized)
+    {
+        mutex_init(&core1_mutex);
+        multicore_launch_core1(core1_image_processing);
+        core1_initialized = true;
+        printf("[Info] Core1 initialized for image processing\n");
+    }
+}
+
 /*
  * ============================================================================
  * Picowalker Driver Functions
@@ -494,7 +561,8 @@ void pw_screen_init()
     lv_obj_align(canvas, LV_ALIGN_CENTER, 0, CANVAS_Y_OFFSET);
     lv_obj_set_size(canvas, CANVAS_WIDTH, CANVAS_HEIGHT);
     //lv_obj_add_flag(canvas, LV_OBJ_FLAG_CLICKABLE);
-    lv_canvas_fill_bg(canvas, lv_color_make(195, 205, 185), LV_OPA_COVER);
+    if (true) lv_canvas_fill_bg(canvas, lv_color_white(), LV_OPA_COVER); // is_color = true
+    else lv_canvas_fill_bg(canvas, lv_color_make(195, 205, 185), LV_OPA_COVER);
     
     // Rounded overlay to create rounded corners effect
     lv_obj_t *canvas_overlay = lv_obj_create(tile_picowalker);
@@ -634,27 +702,56 @@ void pw_screen_init()
     lv_obj_set_style_text_font(eeprom_reset_label, &lv_font_montserrat_14, 0);
     lv_group_add_obj(tile_group, eeprom_reset_button);
 
+    // Initialize core1
+    // init_core1();
 }
 
 /********************************************************************************
- * @brief           Gets Color (Greyscale)
- * @param color     Color from the screen_colour_t (Greyscale)
+ * @brief           Gets Color from pixel value or RGB565
+ * @param color     Color value (0-3 for greyscale enum, or >3 for RGB565)
  * @return lv_color_t
 ********************************************************************************/
-lv_color_t get_color(screen_colour_t color)
+lv_color_t get_color(uint16_t color, bool is_color)
 {
     lv_color_t lv_color;
-    
-    // Convert PW colors to LVGL colors
-    switch(color) 
+
+    // Convert PW greyscale colors to LVGL colors
+    if (is_color)
     {
-        case SCREEN_WHITE: lv_color = lv_color_make(195, 205, 185); break;
-        case SCREEN_LGREY: lv_color = lv_color_make(170,170,170); break;
-        case SCREEN_DGREY: lv_color = lv_color_make(85,85,85); break;
-        case SCREEN_BLACK: lv_color = lv_color_black(); break;
-        default: lv_color = lv_color_white(); break;
+        switch(color)
+        {
+            case SCREEN_WHITE: lv_color = lv_color_white(); break; //lv_color_make(195, 205, 185); break;
+            case SCREEN_LGREY: lv_color = lv_color_make(135, 135, 161); break; //lv_color_make(170,170,170); break;
+            case SCREEN_DGREY: lv_color = lv_color_make(88, 88, 138); break; //lv_color_make(85,85,85); break;
+            case SCREEN_BLACK: lv_color = lv_color_black(); break;
+            default: 
+                // RGB565 color - extract RGB components
+                uint8_t r = ((color >> 11) & 0x1F) << 3; // 5-bit red -> 8-bit
+                uint8_t g = ((color >> 5) & 0x3F) << 2;  // 6-bit green -> 8-bit
+                uint8_t b = (color & 0x1F) << 3;         // 5-bit blue -> 8-bit
+
+                // Expand to full 8-bit range
+                r |= (r >> 5);
+                g |= (g >> 6);
+                b |= (b >> 5);
+
+                lv_color = lv_color_make(r, g, b);
+                break;
+        }
     }
-    
+    else
+    {
+        switch(color)
+        {
+            case SCREEN_WHITE: lv_color = lv_color_make(195, 205, 185); break;
+            case SCREEN_LGREY: lv_color = lv_color_make(170,170,170); break;
+            case SCREEN_DGREY: lv_color = lv_color_make(85,85,85); break;
+            case SCREEN_BLACK: lv_color = lv_color_black(); break;
+            default: lv_color = lv_color_white(); break;
+        }
+    }
+
+
     return lv_color;
 }
 
@@ -701,38 +798,108 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
 {
     if (!canvas || !image || !image->data) return;
 
-    // Calculate image size (2 bytes per 8 pixels)
-    image->size = image->width * image->height * 2 / 8;
+    uint8_t *image_data = image->data;
+    bool is_color = false;
 
-    // Process image data in chunks of 2 bytes (8 pixels each)
-    for (size_t i = 0; i < image->size; i += 2)
+    // Check if we should use alternate color lookup (RGB565)
+    if (image->lookup_table.use_alt)
     {
-        uint8_t bpp_upper = image->data[i + 0];
-        uint8_t bpp_lower = image->data[i + 1];
+        // // Send work to core1
+        // multicore_fifo_push_blocking(0xDEADBEEF);
+        // multicore_fifo_push_blocking((uint32_t)image);
 
-        // Process 8 pixels from this byte pair
-        for (size_t j = 0; j < 8; j++)
+        // // Wait for core1 to finish processing
+        // uint32_t result_signal = multicore_fifo_pop_blocking();
+        // if (result_signal == 0xCAFEBABE)
+        // {
+        //     mutex_enter_blocking(&core1_mutex);
+        //     image_data = core1_result;
+        //     mutex_exit(&core1_mutex);
+        //     is_color = true;
+        // }
+        
+        // Routes
+        if (image->lookup_table.addr == 0x8FBE)
+        {   
+            uint8_t index;
+            pw_eeprom_read(0x8F27, &index, 1); // 0x8F27 Route Index
+            uint8_t *color_data = find_route_by_index(index);
+            if (color_data != NULL)
+            {
+                image_data = color_data;
+                is_color = true;
+            }
+        }
+        // Icons
+        else
         {
-            // Extract 2-bit pixel value (same as working code)
-            uint8_t pixel_value = ((bpp_upper >> j) & 1) << 1;
-            pixel_value |= ((bpp_lower >> j) & 1);
+            uint8_t *color_data = find_icon_by_eeprom_address(image->lookup_table.addr);
+            if (color_data != NULL)
+            {
+                image_data = color_data;
+                is_color = true;
+            }
+        }
+    }
 
+    // Calculate image size (2 bytes per 8 pixels for 2bpp, or 2 bytes per pixel for RGB565)
+    if (is_color)
+    {
+        // RGB565 mode: 2 bytes per pixel
+        size_t pixel_count = image->width * image->height;
+        uint16_t *color_data = (uint16_t *)image_data;
+
+        for (size_t i = 0; i < pixel_count; i++)
+        {
             // Calculate pixel coordinates
-            size_t x_normal = (i / 2) % image->width;
-            size_t y_normal = 8 * (i / (2 * image->width)) + j;
-            
-            // Skip if pixel is outside image bounds
-            //if (x_normal >= image->width || y_normal >= image->height) continue;
+            size_t x_normal = i % image->width;
+            size_t y_normal = i / image->width;
 
-            lv_color_t lv_color = get_color(pixel_value);
+            lv_color_t lv_color = get_color(color_data[i], true);
 
             for (size_t py = 0; py < CANVAS_SCALE; py++)
             {
                 for (size_t px = 0; px < CANVAS_SCALE; px++)
                 {
-                    int canvas_x = (x + x_normal) * CANVAS_SCALE + px; 
+                    int canvas_x = (x + x_normal) * CANVAS_SCALE + px;
                     int canvas_y = (y + y_normal) * CANVAS_SCALE + py;
                     lv_canvas_set_px(canvas, canvas_x, canvas_y, lv_color);
+                }
+            }
+        }
+    }
+    else
+    {
+        // Standard 2bpp greyscale mode
+        image->size = image->width * image->height * 2 / 8;
+
+        // Process image data in chunks of 2 bytes (8 pixels each)
+        for (size_t i = 0; i < image->size; i += 2)
+        {
+            uint8_t bpp_upper = image->data[i + 0];
+            uint8_t bpp_lower = image->data[i + 1];
+
+            // Process 8 pixels from this byte pair
+            for (size_t j = 0; j < 8; j++)
+            {
+                // Extract 2-bit pixel value
+                uint8_t pixel_value = ((bpp_upper >> j) & 1) << 1;
+                pixel_value |= ((bpp_lower >> j) & 1);
+
+                // Calculate pixel coordinates
+                size_t x_normal = (i / 2) % image->width;
+                size_t y_normal = 8 * (i / (2 * image->width)) + j;
+
+                lv_color_t lv_color = get_color(pixel_value, true);
+
+                for (size_t py = 0; py < CANVAS_SCALE; py++)
+                {
+                    for (size_t px = 0; px < CANVAS_SCALE; px++)
+                    {
+                        int canvas_x = (x + x_normal) * CANVAS_SCALE + px;
+                        int canvas_y = (y + y_normal) * CANVAS_SCALE + py;
+                        lv_canvas_set_px(canvas, canvas_x, canvas_y, lv_color);
+                    }
                 }
             }
         }
@@ -749,9 +916,10 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
 void pw_screen_clear_area(screen_pos_t x, screen_pos_t y, screen_pos_t width, screen_pos_t height)
 {
     if (!canvas) return;
-    
+    lv_color_t bg_color;
     // Clear area by setting pixels directly to background color with scaling
-    lv_color_t bg_color = lv_color_make(195, 205, 185);
+    if (true) bg_color = lv_color_white();
+    else bg_color = lv_color_make(195, 205, 185);
     draw_to_scale(x, y, width, height, bg_color);
 }
 
@@ -766,7 +934,7 @@ void pw_screen_draw_horiz_line(screen_pos_t x, screen_pos_t y, screen_pos_t widt
 {
     if (!canvas) return;
 
-    lv_color_t lv_color = get_color(color);
+    lv_color_t lv_color = get_color(color, true);
     draw_to_scale(x, y, width, 1, lv_color);
 }
 
@@ -783,7 +951,7 @@ void pw_screen_draw_text_box(screen_pos_t x, screen_pos_t y, screen_pos_t width,
     if (!canvas) return;
     
     // Convert PW color to LVGL color
-    lv_color_t lv_color = get_color(color);
+    lv_color_t lv_color = get_color(color, true);
     
     // Draw the 4 border lines using draw_to_scale()
     // Top horizontal line
@@ -806,7 +974,8 @@ void pw_screen_draw_text_box(screen_pos_t x, screen_pos_t y, screen_pos_t width,
 void pw_screen_clear()
 {
     if (!canvas) return;
-    lv_canvas_fill_bg(canvas, lv_color_make(195, 205, 185), LV_OPA_COVER);
+    if (true) lv_canvas_fill_bg(canvas, lv_color_white(), LV_OPA_COVER); // is_color = true
+    else lv_canvas_fill_bg(canvas, lv_color_make(195, 205, 185), LV_OPA_COVER);
 }
 
 /********************************************************************************
@@ -821,7 +990,7 @@ void pw_screen_fill_area(screen_pos_t x, screen_pos_t y, screen_pos_t width, scr
 {
     if (!canvas) return;
     
-    lv_color_t lv_color = get_color(color);
+    lv_color_t lv_color = get_color(color, true);
     draw_to_scale(x, y, width, height, lv_color);
 }
 

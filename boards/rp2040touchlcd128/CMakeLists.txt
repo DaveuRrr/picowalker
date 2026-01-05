@@ -95,6 +95,11 @@ if (USE_LVGL)
       ${MAIN_SRC_DIR}/drivers/usb/msc_disk.h
       ${MAIN_SRC_DIR}/drivers/usb/usb_descriptors.c
       ${MAIN_SRC_DIR}/drivers/usb/tusb_config.h
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_icons.c
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_icons.h
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_routes.c
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_routes.h
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color.S
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_inbuilt.S 
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_inbuilt.h
       ${MAIN_SRC_DIR}/assets/pokewalker_rp2xxx_inbuilt.S
@@ -115,6 +120,7 @@ if (USE_LVGL)
       QMI8658
       lvgl
       pico_stdlib
+      pico_multicore
       pico_aon_timer
       hardware_sleep
       hardware_spi
@@ -154,12 +160,12 @@ target_include_directories(picowalker_rp2040touchlcd128 PUBLIC
 )
 
 ### Enable usb, uart etc for stdio
-# pico_enable_stdio_usb(picowalker_rp2040touchlcd128 1)  # Now using USB CDC 0 for debug
-# target_compile_definitions(picowalker_rp2040touchlcd128 PRIVATE
-#     PICO_STDIO_USB_DEFAULT_CRLF=1
-#     PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=1000
-#     LIB_PICO_STDIO_USB=1
-# )
+pico_enable_stdio_usb(picowalker_rp2040touchlcd128 1)  # Now using USB CDC 0 for debug
+target_compile_definitions(picowalker_rp2040touchlcd128 PRIVATE
+    PICO_STDIO_USB_DEFAULT_CRLF=1
+    PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=1000
+    LIB_PICO_STDIO_USB=1
+)
 
 ### Add outputs other than .elf file
 pico_add_extra_outputs(picowalker_rp2040touchlcd128)

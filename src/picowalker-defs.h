@@ -9,6 +9,17 @@
 
 /*
  *  ==================================================================================
+ *  EEPROM
+ *  ==================================================================================
+ */
+
+/*
+ * Types and defines
+ */
+typedef uint16_t eeprom_addr_t;
+
+/*
+ *  ==================================================================================
  *  SCREEN
  *  ==================================================================================
  */
@@ -35,19 +46,11 @@ typedef struct pw_img_s {
   img_dim_t height;
   uint8_t *data;
   size_t size;
-  uint8_t padding;
   struct {
-    draw_mode_t draw_mode : 1;
-    contents_format_t contents_format : 1;
+    eeprom_addr_t addr;
     bool use_alt : 1;
-  } flags;
+  } lookup_table;
 } pw_img_t;
-
-// typedef struct {
-//     screen_pos_t height, width;
-//     uint8_t *data;
-//     size_t size; /// bytes
-// } pw_img_t;
 
 typedef struct {
     screen_pos_t width, height;
@@ -95,18 +98,6 @@ void pw_screen_fill_area(
 );
 void pw_screen_sleep();
 void pw_screen_wake();
-
-
-/*
- *  ==================================================================================
- *  EEPROM
- *  ==================================================================================
- */
-
-/*
- * Types and defines
- */
-typedef uint16_t eeprom_addr_t;
 
 /*
  *  Functions defined by the driver
