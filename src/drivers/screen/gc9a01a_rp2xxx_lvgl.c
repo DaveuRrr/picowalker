@@ -3,6 +3,7 @@
 #include "qmi8658_rp2xxx.h"
 #include "picowalker_rp2xxx_color_icons.h"
 #include "picowalker_rp2xxx_color_routes.h"
+#include "picowalker_rp2xxx_color_pokemon_small.h"
 
 #include "picowalker-defs.h"
 
@@ -788,6 +789,29 @@ void draw_to_scale(screen_pos_t x, screen_pos_t y, screen_pos_t width, screen_po
     }
 }
 
+// /*
+//  *  size: 16 bytes
+//  *  dmitry: struct PokemonSummary
+//  */
+// typedef struct {
+//     /* +0x00 */ uint16_t le_species;
+//     /* +0x02 */ uint16_t le_held_item;
+//     /* +0x04 */ uint16_t le_moves[4];
+//     /* +0x0c */ uint8_t level;
+//     /* +0x0d */ struct {
+//         uint8_t variant : 5;      // bits 0-4: variant index (0-31)
+//         uint8_t unused : 1;       // bit 5: unused
+//         uint8_t is_female : 1;    // bit 6: gender flag
+//         uint8_t unused2 : 1;      // bit 7: unused
+//     } flags_1;
+//     /* +0x0e */ struct {
+//         uint8_t has_form : 1;     // bit 0: has form flag
+//         uint8_t is_shiny : 1;     // bit 1: shiny flag
+//         uint8_t unused : 6;       // bits 2-7: unused
+//     } flags_2;
+//     /* +0x0f */ uint8_t padding;
+// } pokemon_summary_t;
+
 /********************************************************************************
  * @brief           Draws image to Canvas
  * @param image     Incoming image of picowalker
@@ -800,6 +824,7 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
 
     uint8_t *image_data = image->data;
     bool is_color = false;
+    bool is_transparent = false;
 
     // Check if we should use alternate color lookup (RGB565)
     if (image->lookup_table.use_alt)
@@ -817,9 +842,42 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
         //     mutex_exit(&core1_mutex);
         //     is_color = true;
         // }
-        
+
+        // Pokemon Large
+        if (image->lookup_table.addr == 0x933E || image->lookup_table.addr == 0x963E)
+        {
+            // poke_summary_t poke; 
+            // pw_eeprom_read(0x8F00, &poke, len(poke_summary_t));
+            is_color = false;
+        }
+        // Pokemon Small, Mine 0x91BE/0x927E, First 0x9E3E/0x9D7E
+        if (image->lookup_table.addr == 0x91BE || image->lookup_table.addr == 0x927E    // 0 Pokemon (Ours)
+        || image->lookup_table.addr == 0x9D7E || image->lookup_table.addr == 0x9E3E     // 1 Pokemon
+        || image->lookup_table.addr == 0x9A7E || image->lookup_table.addr == 0x9B3E     // 2 Pokemon
+        || image->lookup_table.addr == 0x9BFE || image->lookup_table.addr == 0x9CBE)    // 3 Pokemon
+        {   
+            uint16_t species = image->lookup_table.metadata.pokemon.species;
+            uint8_t variant = image->lookup_table.metadata.pokemon.flags & 0x3F;
+            uint8_t *color_data = find_pokemon_small(species, variant);
+            if (color_data != NULL)
+            {
+                // Second Frame
+                if (image->lookup_table.addr == 0x927E 
+                    || image->lookup_table.addr == 0x9E3E
+                    || image->lookup_table.addr == 0x9B3E
+                    || image->lookup_table.addr == 0x9CBE)
+                {
+                    color_data = color_data + 1536;
+                }
+                image->width = 32;
+                image->height = 24;
+                image_data = color_data;
+                is_color = true;
+                is_transparent = true;
+            }
+        }
         // Routes
-        if (image->lookup_table.addr == 0x8FBE)
+        else if (image->lookup_table.addr == 0x8FBE)
         {   
             uint8_t index;
             pw_eeprom_read(0x8F27, &index, 1); // 0x8F27 Route Index
@@ -848,14 +906,19 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
         // RGB565 mode: 2 bytes per pixel
         size_t pixel_count = image->width * image->height;
         uint16_t *color_data = (uint16_t *)image_data;
+        uint16_t transparency_color = color_data[0];
+        lv_color_t background_color = lv_color_white(); // TODO I need a color pallete...
 
         for (size_t i = 0; i < pixel_count; i++)
         {
             // Calculate pixel coordinates
             size_t x_normal = i % image->width;
             size_t y_normal = i / image->width;
+            
 
-            lv_color_t lv_color = get_color(color_data[i], true);
+            lv_color_t lv_color;
+            if (color_data[i] == transparency_color && is_transparent) lv_color = background_color;
+            else lv_color = get_color(color_data[i], true);
 
             for (size_t py = 0; py < CANVAS_SCALE; py++)
             {

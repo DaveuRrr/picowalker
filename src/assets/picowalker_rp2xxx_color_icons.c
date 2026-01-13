@@ -51,19 +51,6 @@ const color_icons_t icons_map[ICONS_COUNT] = {
     { 0x2470, 0x006D00,  128,  8,  8 },  // 0x2470_music_note.png
 };
 
-// 0x0910 - PW_EEPROM_ADDR_IMG_MENU_TITLE_POKERADAR
-// 0x02E0 - Digit
-// 0x0360 - Digit
-// 0x0420 - Watts
-// 0x0400 - Digit
-// 0x02A0 - Digit
-// 0x0280 - Digit
-
-// 0x0528 - Arrow 
-// 0x0598 - Arrow
-// 0x2050 - PW_EEPROM_ADDR_TEXT_RADAR_ACTION
-// 0x74A9 - Unknown
-// 0xFFFF -1
 
 uint8_t* find_icon_by_eeprom_address(uint16_t eeprom_address) 
 {

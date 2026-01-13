@@ -98,6 +98,8 @@ if (USE_LVGL)
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_icons.h
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_routes.c
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_routes.h
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_pokemon_small.c
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_pokemon_small.h
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color.S
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_inbuilt.S 
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_inbuilt.h

@@ -6,3 +6,6 @@ color_icons: .incbin "../../rom/color_icons.bin"
 
 .global color_routes
 color_routes: .incbin "../../rom/color_routes.bin"
+
+.global color_pokemon_small
+color_pokemon_small: .incbin "../../rom/color_pokemon_small.bin"

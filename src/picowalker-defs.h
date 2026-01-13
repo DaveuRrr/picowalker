@@ -31,15 +31,14 @@ typedef uint8_t screen_pos_t;       /// 0-95
 typedef uint8_t screen_colour_t;    /// 2-bits, pw style
 typedef uint8_t img_dim_t;
 
-typedef enum draw_mode_e {
-  DRAW_ORIGINAL = 0,
-  DRAW_COLOR = 1,
-} draw_mode_t;
-
-typedef enum contents_format_e {
-  CONTENTS_ORIGINAL = 0,
-  CONTENTS_COLOR = 1,
-} contents_format_t;
+// Unpacking flags
+// uint8_t variant = flags & 0x3F;            // Mask bits 0-4 0x1F if 32 variants
+// uint8_t gender  = (flags >> 5) & 0x01;     // Bit 5
+// uint8_t shiny   = (flags >> 6) & 0x01;     // Bit 6
+typedef struct {
+    uint16_t species;
+    uint8_t flags; // [7] Shiny, [6] gender, [0-5] variant (0-31)
+} pokemon_metadata_t;
 
 typedef struct pw_img_s {
   img_dim_t width;
@@ -49,6 +48,11 @@ typedef struct pw_img_s {
   struct {
     eeprom_addr_t addr;
     bool use_alt : 1;
+
+    union {
+        pokemon_metadata_t pokemon;
+    } metadata;
+
   } lookup_table;
 } pw_img_t;
 
