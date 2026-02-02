@@ -4,6 +4,9 @@
 #include "picowalker_rp2xxx_color_icons.h"
 #include "picowalker_rp2xxx_color_routes.h"
 #include "picowalker_rp2xxx_color_pokemon_small.h"
+#include "picowalker_rp2xxx_color_pokemon_large.h"
+// #include "picowalker_rp2xxx_color_pokemon_large_shiny.h"
+#include "picowalker_rp2xxx_color_rle.h"
 
 #include "picowalker-defs.h"
 
@@ -823,8 +826,11 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
     if (!canvas || !image || !image->data) return;
 
     uint8_t *image_data = image->data;
+    uint8_t *bin_data;
+    uint32_t uncompressed_size;
     bool is_color = false;
     bool is_transparent = false;
+    bool is_second_frame = false;
 
     // Check if we should use alternate color lookup (RGB565)
     if (image->lookup_table.use_alt)
@@ -846,9 +852,38 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
         // Pokemon Large
         if (image->lookup_table.addr == 0x933E || image->lookup_table.addr == 0x963E)
         {
-            // poke_summary_t poke; 
-            // pw_eeprom_read(0x8F00, &poke, len(poke_summary_t));
-            is_color = false;
+            uint16_t species;
+            uint8_t pokemon_flags_1;
+            uint8_t pokemon_flags_2;
+            pw_eeprom_read(0x8F00, (uint8_t*)&species, 2);
+            pw_eeprom_read(0x8F0D, &pokemon_flags_1, 1);
+            pw_eeprom_read(0x8F0E, &pokemon_flags_2, 1);
+
+            uint8_t variant = pokemon_flags_1 & 0x1F;
+            bool is_female = pokemon_flags_1 & 0x20;
+            bool is_shiny = pokemon_flags_2 & 0x02;
+            
+            pokemon_large_entry_t *poke_large;
+            
+            // if (is_shiny) poke_large = find_pokemon_large_shiny(species, variant, is_female);
+            // else poke_large = find_pokemon_large(species, variant, is_female);
+            
+            poke_large = find_pokemon_large(species, variant, is_female);
+            if (poke_large != NULL)
+            {
+                bin_data = color_pokemon_large + poke_large->bin_offset;
+                uncompressed_size = poke_large->uncompressed_size;
+                image->width = 64;
+                image->height = 48;
+                is_color = true;
+                is_transparent = true;
+
+                // Second Frame
+                if (image->lookup_table.addr == 0x963E)
+                {
+                    is_second_frame = true;
+                }
+            }
         }
         // Pokemon Small, Mine 0x91BE/0x927E, First 0x9E3E/0x9D7E
         if (image->lookup_table.addr == 0x91BE || image->lookup_table.addr == 0x927E    // 0 Pokemon (Ours)
@@ -857,23 +892,27 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
         || image->lookup_table.addr == 0x9BFE || image->lookup_table.addr == 0x9CBE)    // 3 Pokemon
         {   
             uint16_t species = image->lookup_table.metadata.pokemon.species;
-            uint8_t variant = image->lookup_table.metadata.pokemon.flags & 0x3F;
-            uint8_t *color_data = find_pokemon_small(species, variant);
-            if (color_data != NULL)
+            uint8_t variant = image->lookup_table.metadata.pokemon.flags & 0x1F;
+
+            pokemon_large_entry_t *poke_small = find_pokemon_small(species, variant);
+
+            if (poke_small != NULL)
             {
+                bin_data = color_pokemon_small + poke_small->bin_offset;
+                uncompressed_size = poke_small->uncompressed_size;
+                image->width = 32;
+                image->height = 24;
+                is_color = true;
+                is_transparent = true;
+
                 // Second Frame
                 if (image->lookup_table.addr == 0x927E 
                     || image->lookup_table.addr == 0x9E3E
                     || image->lookup_table.addr == 0x9B3E
                     || image->lookup_table.addr == 0x9CBE)
                 {
-                    color_data = color_data + 1536;
+                    is_second_frame = true;
                 }
-                image->width = 32;
-                image->height = 24;
-                image_data = color_data;
-                is_color = true;
-                is_transparent = true;
             }
         }
         // Routes
@@ -881,20 +920,28 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
         {   
             uint8_t index;
             pw_eeprom_read(0x8F27, &index, 1); // 0x8F27 Route Index
-            uint8_t *color_data = find_route_by_index(index);
-            if (color_data != NULL)
+            color_routes_t *route = find_route_by_index(index);
+
+            if (route != NULL)
             {
-                image_data = color_data;
+                bin_data = color_routes + route->bin_offset;
+                uncompressed_size = route->uncompressed_size;
+                image->width = 32;
+                image->height = 24;
                 is_color = true;
             }
         }
         // Icons
         else
         {
-            uint8_t *color_data = find_icon_by_eeprom_address(image->lookup_table.addr);
-            if (color_data != NULL)
+            color_icons_t *icons = find_icon_by_eeprom_address(image->lookup_table.addr);
+            
+            if (icons != NULL)
             {
-                image_data = color_data;
+                bin_data = color_icons + icons->bin_offset;
+                uncompressed_size = icons->uncompressed_size;
+                image->width = icons->width;
+                image->height = icons->height;
                 is_color = true;
             }
         }
@@ -905,7 +952,10 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
     {
         // RGB565 mode: 2 bytes per pixel
         size_t pixel_count = image->width * image->height;
-        uint16_t *color_data = (uint16_t *)image_data;
+        // uncompress the image data...
+        uint16_t *color_data = (uint16_t *)rle_decompress_rgb565(bin_data, uncompressed_size);
+        if (is_second_frame) color_data += (image->width * image->height);
+        // uint16_t *color_data = (uint16_t *)image_data;
         uint16_t transparency_color = color_data[0];
         lv_color_t background_color = lv_color_white(); // TODO I need a color pallete...
 

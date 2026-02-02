@@ -100,6 +100,12 @@ if (USE_LVGL)
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_routes.h
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_pokemon_small.c
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_pokemon_small.h
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_pokemon_large.c
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_pokemon_large.h
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_pokemon_large_shiny.c
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_pokemon_large_shiny.h
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_rle.c
+      ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color_rle.h
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_color.S
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_inbuilt.S 
       ${MAIN_SRC_DIR}/assets/picowalker_rp2xxx_inbuilt.h
@@ -167,6 +173,9 @@ target_compile_definitions(picowalker_rp2350touchlcd128 PRIVATE
     PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=1000
     LIB_PICO_STDIO_USB=1
 )
+
+### Use custom 16MB linker script
+pico_set_linker_script(picowalker_rp2350touchlcd128 ${CMAKE_CURRENT_LIST_DIR}/memmap_16mb.ld)
 
 ### Add outputs other than .elf file
 pico_add_extra_outputs(picowalker_rp2350touchlcd128)
