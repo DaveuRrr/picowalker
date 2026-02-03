@@ -200,7 +200,7 @@ const pokemon_large_entry_t pokemon_large_map[POKEMON_LARGE_COUNT] = {
     { 0x00AA00, 0x0CBD17,  3432, 12288, 64, 96 }, // Chinchou    0
     { 0x00AB00, 0x0CCA7F,  4149, 12288, 64, 96 }, // Lanturn     0
     { 0x00AC00, 0x0CDAB4,  2161, 12288, 64, 96 }, // Pichu      Normal 0
-    { 0x00AC21, 0x0CE325,  2105, 12288, 64, 96 }, // Pichu      Spiky-eared 0
+    { 0x00AC01, 0x0CE325,  2105, 12288, 64, 96 }, // Pichu      Spiky-eared 0
     { 0x00AD00, 0x0CEB5E,  1671, 12288, 64, 96 }, // Cleffa      0
     { 0x00AE00, 0x0CF1E5,  1761, 12288, 64, 96 }, // Igglybuff   0
     { 0x00AF00, 0x0CF8C6,  1859, 12288, 64, 96 }, // Togepi      0
@@ -680,11 +680,11 @@ const pokemon_large_entry_t* find_pokemon_large(uint16_t species, uint8_t varian
 
             if (offset + size > POKEMON_LARGE_BIN_SIZE)
             {
-                printf("[COLOR_POKEMON_LARGE_ERROR] Key 0x%06X: bounds check failed (offset=0x%06X + size=%u > BIN_SIZE=%u)\n", search_key, offset, size, POKEMON_LARGE_BIN_SIZE);
+            // printf("[COLOR_POKEMON_LARGE_ERROR] Key 0x%06X: bounds check failed (offset=0x%06X + size=%u > BIN_SIZE=%u)\n", search_key, offset, size, POKEMON_LARGE_BIN_SIZE);
                 return NULL; // Out of bounds
             }
-            printf("[COLOR_POKEMON_LARGE_FOUND] Key 0x%06X: offset=0x%06X, size=%u bytes, %ux%u pixels\n", search_key, offset, size, pokemon_large_map[mid].width, pokemon_large_map[mid].height);
-            printf("[COLOR_POKEMON_LARGE_FOUND] Species: %u Variant: %u Female: %u", species, variant_index, is_female); 
+            // printf("[COLOR_POKEMON_LARGE_FOUND] Key 0x%06X: offset=0x%06X, size=%u bytes, %ux%u pixels\n", search_key, offset, size, pokemon_large_map[mid].width, pokemon_large_map[mid].height);
+            // printf("[COLOR_POKEMON_LARGE_FOUND] Species: %u Variant: %u Female: %u\n", species, variant_index, is_female); 
             // return color_pokemon_large + offset;
             return &pokemon_large_map[mid];
         }
@@ -692,6 +692,6 @@ const pokemon_large_entry_t* find_pokemon_large(uint16_t species, uint8_t varian
         else right = mid - 1;
     }
 
-    printf("[COLOR_POKEMON_LARGE_MISS] Key 0x%06X: not found in lookup table\n", search_key);
+    // printf("[COLOR_POKEMON_LARGE_MISS] Key 0x%06X: not found in lookup table\n", search_key);
     return NULL;
 }

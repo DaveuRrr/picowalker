@@ -680,12 +680,12 @@ const pokemon_large_entry_t* find_pokemon_large_shiny(uint16_t species, uint8_t 
 
             if (offset + size > POKEMON_LARGE_SHINY_BIN_SIZE)
             {
-            // printf("[COLOR_POKEMON_LARGE_ERROR] Key 0x%06X: bounds check failed (offset=0x%06X + size=%u > BIN_SIZE=%u)\n", search_key, offset, size, POKEMON_LARGE_BIN_SIZE);
+            // printf("[COLOR_POKEMON_LARGE_ERROR] Key 0x%06X: bounds check failed (offset=0x%06X + size=%u > BIN_SIZE=%u)\n", search_key, offset, size, POKEMON_LARGE_SHINY_BIN_SIZE);
                 return NULL; // Out of bounds
             }
-            // printf("[COLOR_POKEMON_LARGE_FOUND] Key 0x%06X: offset=0x%06X, size=%u bytes, %ux%u pixels\n", search_key, offset, size, pokemon_large_map[mid].width, pokemon_large_map[mid].height);
-            // printf("[COLOR_POKEMON_LARGE_FOUND] Species: %u Variant: %u Female: %u", species, variant_index, is_female); 
-            // return color_pokemon_large + offset;
+            // printf("[COLOR_POKEMON_LARGE_FOUND] Key 0x%06X: offset=0x%06X, size=%u bytes, %ux%u pixels\n", search_key, offset, size, pokemon_large_shiny_map[mid].width, pokemon_large_shiny_map[mid].height);
+            // printf("[COLOR_POKEMON_LARGE_FOUND] Species: %u Variant: %u Female: %u\n", species, variant_index, is_female); 
+            // return color_pokemon_large_shiny + offset;
             return &pokemon_large_shiny_map[mid];
         }
         else if (mid_key < search_key) left = mid + 1;

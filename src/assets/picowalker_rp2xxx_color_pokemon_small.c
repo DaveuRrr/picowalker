@@ -577,6 +577,7 @@ const pokemon_small_entry_t* find_pokemon_small(uint16_t species, uint8_t varian
                 return NULL; // Out of bounds
             }
             // printf("[COLOR_POKEMON_SMALL_FOUND] Key 0x%06X: offset=0x%06X, size=%u bytes, %ux%u pixels\n", search_key, offset, size, pokemon_small_map[mid].width, pokemon_small_map[mid].height);
+            // printf("[COLOR_POKEMON_SMALL_FOUND] species=%u variant=%u\n", species, variant_index);
             // return color_pokemon_small + offset;
             return &pokemon_small_map[mid];
         }
@@ -584,6 +585,9 @@ const pokemon_small_entry_t* find_pokemon_small(uint16_t species, uint8_t varian
         else right = mid - 1;
     }
 
+    // Default to Standard Form
+    if (variant_index != 0) return find_pokemon_small(species, 0);
+    
     // printf("[COLOR_POKEMON_SMALL_MISS] Key 0x%06X: not found in lookup table\n", search_key);
     return NULL;
 }

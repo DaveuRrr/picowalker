@@ -14,8 +14,8 @@ typedef struct {
     uint16_t height;            // Height in pixels
 } color_icons_t;
 
-#define ICONS_COUNT 46
-#define ICONS_BIN_SIZE 11329
+#define ICONS_COUNT 47
+#define ICONS_BIN_SIZE 12027
 
 extern const color_icons_t icons_map[ICONS_COUNT];
 extern uint8_t color_icons[ICONS_BIN_SIZE];

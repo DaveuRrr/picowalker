@@ -859,12 +859,23 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
             pw_eeprom_read(0x8F0D, &pokemon_flags_1, 1);
             pw_eeprom_read(0x8F0E, &pokemon_flags_2, 1);
 
+            // & 0x1F: AND mask extracts bits 0-4 (variant index: 0-31)
+            // & 0x20: AND mask extracts bit 5 (gender: 0x00 or 0x20)
+            // & 0x01: AND mask extracts bit 0 (has_form flag)
+            // & 0x02: AND mask extracts bit 1 (shiny flag)
             uint8_t variant = pokemon_flags_1 & 0x1F;
             bool is_female = pokemon_flags_1 & 0x20;
+            bool has_form = pokemon_flags_2 & 0x01;
             bool is_shiny = pokemon_flags_2 & 0x02;
+
+
+            if (has_form) is_female = 0; // variants assume the male form.
+            
+            // What if species, pokemon_flags_1, and pokemon_flags_2 are null?
+            // Pull from cache on the driver side.
             
             pokemon_large_entry_t *poke_large;
-            
+            printf("[COLOR_POKEMON_LARGE] Species: %u Variant: %u Female: %u Form:%u", species, variant, is_female, has_form); 
             // if (is_shiny) poke_large = find_pokemon_large_shiny(species, variant, is_female);
             // else poke_large = find_pokemon_large(species, variant, is_female);
             
@@ -891,9 +902,11 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
         || image->lookup_table.addr == 0x9A7E || image->lookup_table.addr == 0x9B3E     // 2 Pokemon
         || image->lookup_table.addr == 0x9BFE || image->lookup_table.addr == 0x9CBE)    // 3 Pokemon
         {   
+            // what if the lookup_table.metadata is null?
+            // scan eeprom...
             uint16_t species = image->lookup_table.metadata.pokemon.species;
             uint8_t variant = image->lookup_table.metadata.pokemon.flags & 0x1F;
-
+            printf("[COLOR_POKEMON_LARGE] Species: %u Variant: %u\n", species, variant); 
             pokemon_large_entry_t *poke_small = find_pokemon_small(species, variant);
 
             if (poke_small != NULL)
