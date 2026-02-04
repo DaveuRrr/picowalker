@@ -1,20 +1,21 @@
-#ifndef POKEMON_LARGE_MAP_H
-#define POKEMON_LARGE_MAP_H
+#ifndef POKEMON_LARGE_SHINY_MAP_H
+#define POKEMON_LARGE_SHINY_MAP_H
 
 #ifndef __ASSEMBLER__
 #include <stdint.h>
+#include "picowalker_rp2xxx_color_pokemon_large.h"
 
-// Pokemon sprite structure with variant/gender/shiny support
-typedef struct {
-    // uint16_t species;        // Pokemon species ID (1-493)
-    // uint8_t variant_index;   // Form variant (0-31)
-    uint32_t composite_key;     // (species << 8) | (is_female << 5) | (variant_index & 0x1F)
-    uint32_t bin_offset;        // Offset in merged binary file
-    uint32_t size;              // Size in bytes
-    uint32_t uncompressed_size; // Size in bytes
-    uint16_t width;             // Width in pixels
-    uint16_t height;            // Height in pixels
-} pokemon_large_entry_t;
+// // Pokemon sprite structure with variant/gender/shiny support
+// typedef struct {
+//     // uint16_t species;        // Pokemon species ID (1-493)
+//     // uint8_t variant_index;   // Form variant (0-31)
+//     uint32_t composite_key;     // (species << 8) | (is_female << 5) | (variant_index & 0x1F)
+//     uint32_t bin_offset;        // Offset in merged binary file
+//     uint32_t size;              // Size in bytes
+//     uint32_t uncompressed_size; // Size in bytes
+//     uint16_t width;             // Width in pixels
+//     uint16_t height;            // Height in pixels
+// } pokemon_large_entry_t;
 
 #define POKEMON_LARGE_SHINY_COUNT 651
 #define POKEMON_LARGE_SHINY_BIN_SIZE 2610357

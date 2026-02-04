@@ -5,7 +5,7 @@
 #include "picowalker_rp2xxx_color_routes.h"
 #include "picowalker_rp2xxx_color_pokemon_small.h"
 #include "picowalker_rp2xxx_color_pokemon_large.h"
-// #include "picowalker_rp2xxx_color_pokemon_large_shiny.h"
+#include "picowalker_rp2xxx_color_pokemon_large_shiny.h"
 #include "picowalker_rp2xxx_color_rle.h"
 
 #include "picowalker-defs.h"
@@ -98,6 +98,16 @@ static void background_callback(lv_event_t *event)
         lv_img_set_src(background_image, backgrounds[index]);
     }
 }
+
+// Cache metadata for Pokemon Walk End
+typedef struct {
+    uint16_t species;
+    uint8_t pokemon_flags_1;
+    uint8_t pokemon_flags_2;
+} metadata_t;
+
+metadata_t metadata;
+
 
 /********************************************************************************
  * @brief           Play simple beep sound using piezo buzzer
@@ -829,84 +839,92 @@ void pw_screen_draw_img(pw_img_t *image, screen_pos_t x, screen_pos_t y)
     uint8_t *bin_data;
     uint32_t uncompressed_size;
     bool is_color = false;
+
+    // Our Pokemon
     bool is_transparent = false;
     bool is_second_frame = false;
+    uint16_t species;
+    uint8_t pokemon_flags_1;
+    uint8_t pokemon_flags_2;
+    uint8_t variant;            // pokemon_flags_1 & 0x1F: AND mask extracts bits 0-4 (variant index: 0-31)
+    bool is_female;             // pokemon_flags_1 & 0x20: AND mask extracts bit 5 (gender: 0x00 or 0x20)
+    bool has_form;              // pokemon_flags_2 & 0x01: AND mask extracts bit 0 (has_form flag)
+    bool is_shiny;              // pokemon_flags_2 & 0x02: AND mask extracts bit 1 (shiny flag)
 
     // Check if we should use alternate color lookup (RGB565)
     if (image->lookup_table.use_alt)
     {
-        // // Send work to core1
-        // multicore_fifo_push_blocking(0xDEADBEEF);
-        // multicore_fifo_push_blocking((uint32_t)image);
-
-        // // Wait for core1 to finish processing
-        // uint32_t result_signal = multicore_fifo_pop_blocking();
-        // if (result_signal == 0xCAFEBABE)
-        // {
-        //     mutex_enter_blocking(&core1_mutex);
-        //     image_data = core1_result;
-        //     mutex_exit(&core1_mutex);
-        //     is_color = true;
-        // }
-
-        // Pokemon Large
-        if (image->lookup_table.addr == 0x933E || image->lookup_table.addr == 0x963E)
+        // Our Pokemon
+        if (image->lookup_table.addr == 0x933E || image->lookup_table.addr == 0x963E // Large
+        || image->lookup_table.addr == 0x91BE || image->lookup_table.addr == 0x927E) // Small
         {
-            uint16_t species;
-            uint8_t pokemon_flags_1;
-            uint8_t pokemon_flags_2;
+            // uint16_t species;
+            // uint8_t pokemon_flags_1;
+            // uint8_t pokemon_flags_2;
             pw_eeprom_read(0x8F00, (uint8_t*)&species, 2);
             pw_eeprom_read(0x8F0D, &pokemon_flags_1, 1);
             pw_eeprom_read(0x8F0E, &pokemon_flags_2, 1);
-
-            // & 0x1F: AND mask extracts bits 0-4 (variant index: 0-31)
-            // & 0x20: AND mask extracts bit 5 (gender: 0x00 or 0x20)
-            // & 0x01: AND mask extracts bit 0 (has_form flag)
-            // & 0x02: AND mask extracts bit 1 (shiny flag)
+            
+            // Pokemon Walk Start & End Animation for Small and Large respectively...
+            if (species == 0 & pokemon_flags_1 == 0 & pokemon_flags_2 == 0) 
+            {
+                species = metadata.species;
+                pokemon_flags_1 = metadata.pokemon_flags_1;
+                pokemon_flags_2 = metadata.pokemon_flags_2;
+            }
+            else 
+            {
+                metadata.species = species;
+                metadata.pokemon_flags_1 = pokemon_flags_1;
+                metadata.pokemon_flags_2 = pokemon_flags_2;
+            }
+            
+        }
+            
+        if (image->lookup_table.addr == 0x933E || image->lookup_table.addr == 0x963E) // Large
+        {
             uint8_t variant = pokemon_flags_1 & 0x1F;
             bool is_female = pokemon_flags_1 & 0x20;
             bool has_form = pokemon_flags_2 & 0x01;
             bool is_shiny = pokemon_flags_2 & 0x02;
-
-
             if (has_form) is_female = 0; // variants assume the male form.
             
-            // What if species, pokemon_flags_1, and pokemon_flags_2 are null?
-            // Pull from cache on the driver side.
-            
             pokemon_large_entry_t *poke_large;
-            printf("[COLOR_POKEMON_LARGE] Species: %u Variant: %u Female: %u Form:%u", species, variant, is_female, has_form); 
-            // if (is_shiny) poke_large = find_pokemon_large_shiny(species, variant, is_female);
-            // else poke_large = find_pokemon_large(species, variant, is_female);
-            
-            poke_large = find_pokemon_large(species, variant, is_female);
+            printf("[COLOR_POKEMON_LARGE] Species: %u Variant: %u Female: %u Form:%u Shiny:%u\n", species, variant, is_female, has_form, is_shiny); 
+            if (is_shiny) poke_large = find_pokemon_large_shiny(species, variant, is_female);
+            else poke_large = find_pokemon_large(species, variant, is_female);
+
             if (poke_large != NULL)
             {
-                bin_data = color_pokemon_large + poke_large->bin_offset;
-                uncompressed_size = poke_large->uncompressed_size;
+                if (is_shiny) bin_data = color_pokemon_large_shiny + poke_large->bin_offset;
+                else bin_data = color_pokemon_large + poke_large->bin_offset;
+
                 image->width = 64;
                 image->height = 48;
                 is_color = true;
                 is_transparent = true;
+                uncompressed_size = poke_large->uncompressed_size;
 
-                // Second Frame
-                if (image->lookup_table.addr == 0x963E)
-                {
-                    is_second_frame = true;
-                }
+                if (image->lookup_table.addr == 0x963E) is_second_frame = true;
             }
         }
-        // Pokemon Small, Mine 0x91BE/0x927E, First 0x9E3E/0x9D7E
+        // Pokemon Small, All of them...
         if (image->lookup_table.addr == 0x91BE || image->lookup_table.addr == 0x927E    // 0 Pokemon (Ours)
         || image->lookup_table.addr == 0x9D7E || image->lookup_table.addr == 0x9E3E     // 1 Pokemon
         || image->lookup_table.addr == 0x9A7E || image->lookup_table.addr == 0x9B3E     // 2 Pokemon
         || image->lookup_table.addr == 0x9BFE || image->lookup_table.addr == 0x9CBE)    // 3 Pokemon
         {   
-            // what if the lookup_table.metadata is null?
-            // scan eeprom...
-            uint16_t species = image->lookup_table.metadata.pokemon.species;
-            uint8_t variant = image->lookup_table.metadata.pokemon.flags & 0x1F;
-            printf("[COLOR_POKEMON_LARGE] Species: %u Variant: %u\n", species, variant); 
+            species = image->lookup_table.metadata.pokemon.species;
+            variant = image->lookup_table.metadata.pokemon.flags & 0x1F;
+
+            // No Lookup Table Metadata Pokemon Walk Start for Small...
+            if (species == 0 & variant == 0) 
+            {
+                species = metadata.species;
+                variant = metadata.pokemon_flags_1 & 0x1F;
+            }
+
+            printf("[COLOR_POKEMON_SMALL] Species: %u Variant: %u\n", species, variant); 
             pokemon_large_entry_t *poke_small = find_pokemon_small(species, variant);
 
             if (poke_small != NULL)
