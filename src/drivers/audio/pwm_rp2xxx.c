@@ -15,7 +15,7 @@
 #define AUDIO_SCALE 1
 #endif
 
-#define AUDIO_CLKDIV 4.0f
+#define AUDIO_CLKDIV 10.0f //4.0f //32000hz Half says is in the phi w clock
 #define AUDIO_PWM_RANGE ((1<<16)-1)
 
 #define AUDIO_SAMPLE_RATE 44100 // 44.1 kHz standard sampling
@@ -131,7 +131,7 @@ void pw_audio_init() {
 
     pwm_config config = pwm_get_default_config();
     // TODO: Modify the clockdiv to make 
-    pwm_config_set_clkdiv(&config, 8.f);
+    pwm_config_set_clkdiv(&config, AUDIO_CLKDIV); //8.f);
     pwm_set_gpio_level(AUDIO_SPEAKER_PIN, 0);
     pwm_init(slice_num, &config, true);
     // PWM is now running
