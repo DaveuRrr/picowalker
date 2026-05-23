@@ -245,13 +245,24 @@ static void button_right_callback(lv_event_t *event)
 }
 
 /********************************************************************************
- * @brief           Canvas Press Callback - adds steps when canvas is pressed
+ * @brief           Canvas Short Click Callback - adds steps when canvas is pressed
  * @param event     LVGL event from canvas
 ********************************************************************************/
 static void button_steps_callback(lv_event_t * event)
 {
     pw_accel_add_steps(1000);
-    printf("[Debug] Steps pressed - step added!\n");
+    printf("[Debug] Steps short clicked - 1000 steps added!\n");
+}
+
+/********************************************************************************
+ * @brief           Canvas Long Press Callback - adds 1 step and forces walking state
+ * @param event     LVGL event from canvas
+********************************************************************************/
+static void button_steps_hold_callback(lv_event_t * event)
+{
+    pw_accel_add_steps(1);
+    pw_is_walking = true;
+    printf("[Debug] Steps hold - 1 step added, walking forced true!\n");
 }
 
 /********************************************************************************
@@ -484,7 +495,8 @@ void pw_screen_init()
     lv_group_add_obj(tile_group, button_top);
     lv_obj_set_ext_click_area(button_right, 15);
     lv_obj_add_style(button_top, &button_style_invisible, 0);
-    lv_obj_add_event_cb(button_top, button_steps_callback, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(button_top, button_steps_callback, LV_EVENT_SHORT_CLICKED, NULL);
+    lv_obj_add_event_cb(button_top, button_steps_hold_callback, LV_EVENT_LONG_PRESSED_REPEAT, NULL);
 
 #else
     // CANVAS_SCALE >= 3: Invisible full-screen buttons taking 1/3 of screen each
@@ -517,7 +529,8 @@ void pw_screen_init()
     lv_obj_set_size(button_top, DISP_HOR_RES, DISP_VER_RES / 3);
     lv_obj_align(button_top, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_add_style(button_top, &button_style_invisible, 0);
-    lv_obj_add_event_cb(button_top, button_steps_callback, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(button_top, button_steps_callback, LV_EVENT_SHORT_CLICKED, NULL);
+    lv_obj_add_event_cb(button_top, button_steps_hold_callback, LV_EVENT_LONG_PRESSED_REPEAT, NULL);
     lv_group_add_obj(tile_group, button_top);
 #endif
 
@@ -528,7 +541,8 @@ void pw_screen_init()
     lv_obj_align(canvas, LV_ALIGN_CENTER, 0, CANVAS_Y_OFFSET);
     lv_obj_set_size(canvas, CANVAS_WIDTH, CANVAS_HEIGHT);
     lv_obj_add_flag(canvas, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(canvas, button_steps_callback, LV_EVENT_PRESSED, NULL);
+    lv_obj_add_event_cb(canvas, button_steps_callback, LV_EVENT_SHORT_CLICKED, NULL);
+    lv_obj_add_event_cb(canvas, button_steps_hold_callback, LV_EVENT_LONG_PRESSED_REPEAT, NULL);
     lv_canvas_fill_bg(canvas, palettes[pw_color_mode][PW_SCREEN_WHITE], LV_OPA_COVER);
 
     // Rounded overlay to create rounded corners effect
@@ -963,6 +977,24 @@ void pw_screen_draw_img(pw_img_t *image, pw_screen_pos_t x, pw_screen_pos_t y)
         uint16_t transparency_color = color_data[0];
         lv_color_t background_color = palettes[pw_color_mode][PW_SCREEN_WHITE]; //lv_color_white(); // TODO I need a color pallete...
 
+        if (image->is_flipped)
+        {
+            size_t pixel_count = image->width * image->height;
+            uint16_t *flipped = malloc(pixel_count * sizeof(uint16_t));
+            memcpy(flipped, color_data, pixel_count * sizeof(uint16_t));
+            for (size_t row = 0; row < image->height; row++)
+            {
+                uint16_t *r = flipped + row * image->width;
+                size_t left = 0, right = image->width - 1;
+                while (left < right) {
+                    uint16_t t = r[left];
+                    r[left++] = r[right];
+                    r[right--] = t;
+                }
+            }
+            color_data = flipped;
+        }
+
         for (size_t i = 0; i < pixel_count; i++)
         {
             // Calculate pixel coordinates
@@ -995,6 +1027,26 @@ void pw_screen_draw_img(pw_img_t *image, pw_screen_pos_t x, pw_screen_pos_t y)
     {
         // Calculate image size (2 bytes per 8 pixels)
         image->size = image->width * image->height * 2 / 8;
+
+        if (image->is_flipped) 
+        {
+            uint8_t *flipped = malloc(image->size);
+            memcpy(flipped, image->data, image->size);
+            size_t tile_rows = image->size / (2 * image->width);
+            for (size_t tr = 0; tr < tile_rows; tr++) {
+                uint8_t *row = flipped + tr * image->width * 2;
+                size_t left = 0, right = image->width - 1;
+                while (left < right) {
+                    uint8_t t0 = row[left*2], t1 = row[left*2+1];
+                    row[left*2]   = row[right*2];
+                    row[left*2+1] = row[right*2+1];
+                    row[right*2]   = t0;
+                    row[right*2+1] = t1;
+                    left++; right--;
+                }
+            }
+            image->data = flipped;
+        }
 
         // Process image data in chunks of 2 bytes (8 pixels each)
         for (size_t i = 0; i < image->size; i += 2)
