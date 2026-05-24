@@ -10,8 +10,9 @@ struct QMI8658_Config qmi8658_config;
 struct QMI8658_PedoConfig pedo_config;
 
 // Is Walking for the Splash screen
-static uint32_t last_step_seen = 0;
 #define WALKING_TIMEOUT 4000
+static uint32_t last_step_seen = 0;
+static uint8_t is_walking = 0;
 
 // Hardware Pedometer Engine Step Counting variables
 static volatile bool pedometer_data_ready = false;
@@ -66,11 +67,11 @@ static bool hardware_pedometer_timer_callback(struct repeating_timer *timer)
     if (steps_added)
     {
         last_step_seen = current_time;
-        pw_is_walking = true;
+        is_walking = 1;
     }
     else if ((current_time - last_step_seen) > WALKING_TIMEOUT)
     {
-        pw_is_walking = false;
+        is_walking = 0;
     }
 
     return true;
@@ -160,11 +161,11 @@ static bool step_processing_timer_callback(struct repeating_timer *timer)
     if (steps_added)
     {
         last_step_seen = current_time;
-        pw_is_walking = true;
+        is_walking = 1;
     }
     else if ((current_time - last_step_seen) > WALKING_TIMEOUT)
     {
-        pw_is_walking = false;
+        is_walking = 0;
     }
 
     return true;
@@ -346,6 +347,17 @@ void pw_accel_reset_steps()
 ********************************************************************************/
 void pw_accel_add_steps(uint32_t steps)
 {
+    is_walking = 1;
     add_steps += steps;
     printf("[Debug] Added %u manual steps (total: %u)\n", steps, add_steps);
+}
+
+/********************************************************************************
+ * @brief           Accel Get New Steps - Returns accumulated steps from timer
+ * @param N/A
+ * @return uint32_t Number of new steps since last call
+********************************************************************************/
+uint8_t pw_accel_get_activity()
+{
+    return is_walking;
 }

@@ -235,7 +235,6 @@ static void button_steps_callback(lv_event_t * event)
 static void button_steps_hold_callback(lv_event_t * event)
 {
     pw_accel_add_steps(1);
-    pw_is_walking = true;
     printf("[Debug] Steps hold - 1 step added, walking forced true!\n");
 }
 
