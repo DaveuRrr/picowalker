@@ -683,31 +683,33 @@ void pw_screen_draw_img(pw_img_t *image, pw_screen_pos_t x, pw_screen_pos_t y)
     // Calculate image size (2 bytes per 8 pixels)
     image->size = image->width * image->height * 2 / 8;
 
-    if (image->is_flipped) 
-        {
-            uint8_t *flipped = malloc(image->size);
-            memcpy(flipped, image->data, image->size);
-            size_t tile_rows = image->size / (2 * image->width);
-            for (size_t tr = 0; tr < tile_rows; tr++) {
-                uint8_t *row = flipped + tr * image->width * 2;
-                size_t left = 0, right = image->width - 1;
-                while (left < right) {
-                    uint8_t t0 = row[left*2], t1 = row[left*2+1];
-                    row[left*2]   = row[right*2];
-                    row[left*2+1] = row[right*2+1];
-                    row[right*2]   = t0;
-                    row[right*2+1] = t1;
-                    left++; right--;
-                }
+    uint8_t *image_data = image->data;
+    uint8_t *flipped = NULL;
+    if (image->is_flipped)
+    {
+        flipped = malloc(image->size);
+        memcpy(flipped, image->data, image->size);
+        size_t tile_rows = image->size / (2 * image->width);
+        for (size_t tr = 0; tr < tile_rows; tr++) {
+            uint8_t *row = flipped + tr * image->width * 2;
+            size_t left = 0, right = image->width - 1;
+            while (left < right) {
+                uint8_t t0 = row[left*2], t1 = row[left*2+1];
+                row[left*2]   = row[right*2];
+                row[left*2+1] = row[right*2+1];
+                row[right*2]   = t0;
+                row[right*2+1] = t1;
+                left++; right--;
             }
-            image->data = flipped;
         }
+        image_data = flipped;
+    }
 
     // Process image data in chunks of 2 bytes (8 pixels each)
     for (size_t i = 0; i < image->size; i += 2)
     {
-        uint8_t bpp_upper = image->data[i + 0];
-        uint8_t bpp_lower = image->data[i + 1];
+        uint8_t bpp_upper = image_data[i + 0];
+        uint8_t bpp_lower = image_data[i + 1];
 
         // Process 8 pixels from this byte pair
         for (size_t j = 0; j < 8; j++)
@@ -732,6 +734,7 @@ void pw_screen_draw_img(pw_img_t *image, pw_screen_pos_t x, pw_screen_pos_t y)
             }
         }
     }
+    free(flipped);
 }
 
 /********************************************************************************

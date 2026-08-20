@@ -858,10 +858,11 @@ void pw_screen_draw_img(pw_img_t *image, pw_screen_pos_t x, pw_screen_pos_t y)
         uint16_t transparency_color = color_data[0];
         lv_color_t background_color = palettes[pw_color_mode][PW_SCREEN_WHITE]; //lv_color_white(); // TODO I need a color pallete...
 
+        uint16_t *flipped = NULL;
         if (image->is_flipped)
         {
             size_t pixel_count = image->width * image->height;
-            uint16_t *flipped = malloc(pixel_count * sizeof(uint16_t));
+            flipped = malloc(pixel_count * sizeof(uint16_t));
             memcpy(flipped, color_data, pixel_count * sizeof(uint16_t));
             for (size_t row = 0; row < image->height; row++)
             {
@@ -897,15 +898,18 @@ void pw_screen_draw_img(pw_img_t *image, pw_screen_pos_t x, pw_screen_pos_t y)
                 }
             }
         }
+        free(flipped);
     }
     else
     {
         // Standard 2bpp greyscale mode
         image->size = image->width * image->height * 2 / 8;
 
-        if (image->is_flipped) 
+        uint8_t *image_data = image->data;
+        uint8_t *flipped = NULL;
+        if (image->is_flipped)
         {
-            uint8_t *flipped = malloc(image->size);
+            flipped = malloc(image->size);
             memcpy(flipped, image->data, image->size);
             size_t tile_rows = image->size / (2 * image->width);
             for (size_t tr = 0; tr < tile_rows; tr++) {
@@ -920,14 +924,14 @@ void pw_screen_draw_img(pw_img_t *image, pw_screen_pos_t x, pw_screen_pos_t y)
                     left++; right--;
                 }
             }
-            image->data = flipped;
+            image_data = flipped;
         }
 
         // Process image data in chunks of 2 bytes (8 pixels each)
         for (size_t i = 0; i < image->size; i += 2)
         {
-            uint8_t bpp_upper = image->data[i + 0];
-            uint8_t bpp_lower = image->data[i + 1];
+            uint8_t bpp_upper = image_data[i + 0];
+            uint8_t bpp_lower = image_data[i + 1];
 
             // Process 8 pixels from this byte pair
             for (size_t j = 0; j < 8; j++)
@@ -953,6 +957,7 @@ void pw_screen_draw_img(pw_img_t *image, pw_screen_pos_t x, pw_screen_pos_t y)
                 }
             }
         }
+        free(flipped);
     }
 }
 
